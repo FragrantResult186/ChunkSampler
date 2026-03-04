@@ -27,4 +27,3 @@ int main()
 make
 g++ example.cpp libchunksampler.a -O3 -std=c++17 -o example
 ```
-Cre

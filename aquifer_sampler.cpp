@@ -34,7 +34,21 @@ namespace mc
 
         int total = sizeX_ * sizeY_ * sizeZ_;
         waterLevels_.resize(total);
-        blockPositions_.resize(total, std::numeric_limits<int64_t>::max());
+        blockPositions_.resize(total);
+        // Initialize random positions for the aquifer sampling grid
+        for (int iy = startY_; iy < startY_ + sizeY_; ++iy) {
+            for (int iz = startZ_; iz < startZ_ + sizeZ_; ++iz) {
+                for (int ix = startX_; ix < startX_ + sizeX_; ++ix)
+                {
+                    auto rand = randomDeriver_.createRandom(ix, iy, iz);
+                    int ax = ix * 16 + rand->nextInt(10);
+                    int ay = iy * 12 + rand->nextInt(9);
+                    int az = iz * 16 + rand->nextInt(10);
+                    int idx = ((iy - startY_) * sizeZ_ + (iz - startZ_)) * sizeX_ + (ix - startX_);
+                    blockPositions_[idx] = BlockPos::asLong(ax, ay, az);
+                }
+            }
+        }
     }
 
     BlockState AquiferSamplerImpl::apply(int i, int j, int k, double d, double e)
@@ -59,46 +73,27 @@ namespace mc
                 int m = MathHelper::floorDiv(j + 1, 12);
                 int n = MathHelper::floorDiv(k - 5, 16);
 
-                int64_t o = std::numeric_limits<int64_t>::max();
-                int64_t p = std::numeric_limits<int64_t>::max();
-                int64_t q = std::numeric_limits<int64_t>::max();
+                int32_t o = std::numeric_limits<int32_t>::max();
+                int32_t p = std::numeric_limits<int32_t>::max();
+                int32_t q = std::numeric_limits<int32_t>::max();
                 int64_t r = 0L;
                 int64_t s = 0L;
                 int64_t t = 0L;
 
+                const int ix0 = l - startX_, iy0 = m - startY_, iz0 = n - startZ_;
                 for (int u = 0; u <= 1; ++u)
                 {
                     for (int v = -1; v <= 1; ++v)
                     {
                         for (int w = 0; w <= 1; ++w)
                         {
-                            int x = l + u;
-                            int y = m + v;
-                            int z = n + w;
-                            int aa = index(x, y, z);
-
-                            int64_t ab = blockPositions_[aa];
-                            int64_t ac;
-
-                            if (ab != std::numeric_limits<int64_t>::max())
-                            {
-                                ac = ab;
-                            }
-                            else
-                            {
-                                auto rand = randomDeriver_.createRandom(x, y, z);
-                                int ax = x * 16 + rand->nextInt(10);
-                                int ay = y * 12 + rand->nextInt(9);
-                                int az = z * 16 + rand->nextInt(10);
-                                //std::printf("[DEBUG] ax=%d ay=%d az=%d\n", ax, ay, az);
-                                ac = BlockPos::asLong(ax, ay, az);
-                                blockPositions_[aa] = ac;
-                            }
+                            const int idx = ((iy0 + v) * sizeZ_ + (iz0 + w)) * sizeX_ + (ix0 + u);
+                            int64_t ac = blockPositions_[idx];
 
                             int ag = BlockPos::unpackLongX(ac) - i;
                             int ad = BlockPos::unpackLongY(ac) - j;
                             int ae = BlockPos::unpackLongZ(ac) - k;
-                            int af = ag * ag + ad * ad + ae * ae;
+                            int32_t af = ag * ag + ad * ad + ae * ae;
 
                             if (o >= af)
                             {
@@ -129,9 +124,9 @@ namespace mc
                 FluidLevel v = getWaterLevel(s);
                 FluidLevel w = getWaterLevel(t);
 
-                double x = maxDistance(o, p);
-                double z = maxDistance(o, q);
-                double ac = maxDistance(p, q);
+                double x = maxDistance((int)o, (int)p);
+                double z = maxDistance((int)o, (int)q);
+                double ac = maxDistance((int)p, (int)q);
 
                 if (u.getBlockState(j).isOf(BlockType::WATER) &&
                     fluidLevelSampler_(i, j - 1, k).getBlockState(j - 1).isOf(BlockType::LAVA))
@@ -205,25 +200,24 @@ namespace mc
 
         double mid = 0.5 * (f1.y + f2.y);
         double relY = y + 0.5 - mid;
-        double halfDy = dy / 2.0;
-        double q = halfDy - std::abs(relY);
+        double q = dy * 0.5 - std::abs(relY);
         double s;
 
         if (relY > 0.0)
         {
-            double r = 0.0 + q;
-            s = (r > 0.0) ? r / 1.5 : r / 2.5;
+            double r = q;
+            s = (r > 0.0) ? r * (1.0 / 1.5) : r * (1.0 / 2.5);
         }
         else
         {
             double r = 3.0 + q;
-            s = (r > 0.0) ? r / 3.0 : r / 10.0;
+            s = (r > 0.0) ? r * (1.0 / 3.0) : r * (1.0 / 10.0);
         }
 
         if (s < -2.0 || s > 2.0)
             return s;
 
-        if (std::isnan(barrierCache))
+        if (barrierCache != barrierCache)
             barrierCache = barrierNoise_.sample(x, y * 0.5, z);
         return barrierCache + s;
     }

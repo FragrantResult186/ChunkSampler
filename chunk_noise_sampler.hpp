@@ -184,9 +184,58 @@ namespace mc
         std::vector<NoiseInterpolator *> interpolators_;
         std::vector<std::unique_ptr<NoiseInterpolator>> ownedInterpolators_;
         std::vector<std::vector<MultiNoisePoint>> field35486_;
-        std::unordered_map<uint64_t, int> field36273_;
+
+        struct SurfaceCache
+        {
+            static constexpr int SIZE = 256; // must be power of 2
+            static constexpr int EMPTY = std::numeric_limits<int>::min();
+            uint64_t keys[SIZE];
+            int vals[SIZE];
+
+            void clear()
+            {
+                for (int i = 0; i < SIZE; ++i)
+                {
+                    keys[i] = ~uint64_t(0);
+                    vals[i] = EMPTY;
+                }
+            }
+
+            int find(uint64_t key) const
+            {
+                int slot = (int)(key ^ (key >> 16)) & (SIZE - 1);
+                for (int i = 0; i < SIZE; ++i)
+                {
+                    int s = (slot + i) & (SIZE - 1);
+                    if (keys[s] == key)
+                        return vals[s];
+                    if (vals[s] == EMPTY)
+                        return EMPTY;
+                }
+                return EMPTY;
+            }
+
+            void insert(uint64_t key, int val)
+            {
+                int slot = (int)(key ^ (key >> 16)) & (SIZE - 1);
+                for (int i = 0; i < SIZE; ++i)
+                {
+                    int s = (slot + i) & (SIZE - 1);
+                    if (vals[s] == EMPTY || keys[s] == key)
+                    {
+                        keys[s] = key;
+                        vals[s] = val;
+                        return;
+                    }
+                }
+                keys[slot] = key;
+                vals[slot] = val; // evict on full
+            }
+        };
+
+        SurfaceCache field36273_;
         BlockStateSampler blockStateSampler_;
         NoiseColumnSampler *noiseColumnSampler_ = nullptr;
     };
 
-} // namespace mc
+} // namespace mcF

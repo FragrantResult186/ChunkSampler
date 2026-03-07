@@ -151,7 +151,7 @@ namespace mc
         {
             if (type == Heightmap::Type::WORLD_SURFACE_WG)
                 return getHeight(x, z, skipCaves);
-            return getChunkAt(x, z).getHeightmap(type).get(x & 15, z & 15);
+            return getChunkAt(x, z, skipCaves).getHeightmap(type).get(x & 15, z & 15);
         }
 
         int getSurfaceY(int x, int z, bool skipCaves = false)

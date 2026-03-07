@@ -28,6 +28,7 @@ namespace mc
         void populateNoise(Chunk &chunk, bool skipCaves = false)
         {
             auto &surfaceMap = chunk.getHeightmap(Heightmap::Type::WORLD_SURFACE_WG);
+            auto &oceanFloorMap = chunk.getHeightmap(Heightmap::Type::OCEAN_FLOOR_WG);
             const ChunkPos &pos = chunk.getPos();
             int startX = pos.getStartX();
             int startZ = pos.getStartZ();
@@ -74,7 +75,10 @@ namespace mc
                                         bs = Blocks::STONE();
                                     chunk.setBlock(localX, blockY, localZ, bs);
                                     if (!bs.isAir())
-                                        surfaceMap.trackUpdate(localX, blockY, localZ);
+                                    {
+                                        surfaceMap.trackUpdate(localX, blockY, localZ, bs.type);
+                                        oceanFloorMap.trackUpdate(localX, blockY, localZ, bs.type);
+                                    }
                                 }
                             }
                         }

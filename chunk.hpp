@@ -89,18 +89,22 @@ namespace mc
     {
         enum class Type
         {
-            WORLD_SURFACE_WG
+            WORLD_SURFACE_WG,
+            OCEAN_FLOOR_WG,
         };
 
-        explicit Heightmap(const HeightLimitView &chunk)
+        explicit Heightmap(const HeightLimitView &chunk, Type type = Type::WORLD_SURFACE_WG)
             : chunk_(&chunk),
               storage_(MathHelper::ceilLog2(chunk.getHeight() + 1), 256),
-              bottomY_(chunk.getBottomY())
+              bottomY_(chunk.getBottomY()),
+              type_(type)
         {
         }
 
-        void trackUpdate(int x, int blockY, int z)
+        void trackUpdate(int x, int blockY, int z, BlockType bt)
         {
+            if (type_ == Type::OCEAN_FLOOR_WG && (bt == BlockType::WATER || bt == BlockType::LAVA))
+                return;
             int cur = get(x, z);
             if (blockY > cur - 2 && blockY >= cur)
                 set(x, z, blockY + 1);
@@ -112,6 +116,7 @@ namespace mc
         const HeightLimitView *chunk_;
         PackedIntegerArray storage_;
         int bottomY_;
+        Type type_;
 
         void set(int x, int z, int val) { storage_.set(toIndex(x, z), val - bottomY_); }
         static int toIndex(int x, int z) { return x + z * 16; }
@@ -152,7 +157,7 @@ namespace mc
             auto it = heightmaps_.find(type);
             if (it == heightmaps_.end())
             {
-                auto [ins, ok] = heightmaps_.emplace(type, Heightmap(*this));
+                auto [ins, ok] = heightmaps_.emplace(type, Heightmap(*this, type));
                 return ins->second;
             }
             return it->second;

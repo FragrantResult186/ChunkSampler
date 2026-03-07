@@ -19,6 +19,10 @@ namespace mc
             int j = rand.nextInt(256 - i);
             std::swap(perm_[i], perm_[i + j]);
         }
+        for (int i = 0; i < 256; ++i)
+            perm_[i + 256] = perm_[i];
+        for (int i = 0; i < 512; ++i)
+            permGrad16_[i] = perm_[i] & 15;
     }
 
     double PerlinNoiseSampler::sample(double d, double e, double f, double g, double h) const
@@ -50,22 +54,33 @@ namespace mc
     double PerlinNoiseSampler::sampleInternal(int x, int y, int z,
                                               double dx, double dy, double dz, double fadeY) const
     {
-        int gx0 = grad(x);
-        int gx1 = grad(x + 1);
+        int gx0 = perm_[x & 255];
+        int gx1 = perm_[(x + 1) & 255];
 
-        int gy00 = grad(gx0 + y);
-        int gy01 = grad(gx0 + y + 1);
-        int gy10 = grad(gx1 + y);
-        int gy11 = grad(gx1 + y + 1);
+        int gy00 = perm_[(gx0 + y) & 255];
+        int gy01 = perm_[(gx0 + y + 1) & 255];
+        int gy10 = perm_[(gx1 + y) & 255];
+        int gy11 = perm_[(gx1 + y + 1) & 255];
 
-        double n000 = SimplexNoiseSampler::dot(SimplexNoiseSampler::GRADIENTS[grad(gy00 + z) & 15], dx, dy, dz);
-        double n100 = SimplexNoiseSampler::dot(SimplexNoiseSampler::GRADIENTS[grad(gy10 + z) & 15], dx - 1, dy, dz);
-        double n010 = SimplexNoiseSampler::dot(SimplexNoiseSampler::GRADIENTS[grad(gy01 + z) & 15], dx, dy - 1, dz);
-        double n110 = SimplexNoiseSampler::dot(SimplexNoiseSampler::GRADIENTS[grad(gy11 + z) & 15], dx - 1, dy - 1, dz);
-        double n001 = SimplexNoiseSampler::dot(SimplexNoiseSampler::GRADIENTS[grad(gy00 + z + 1) & 15], dx, dy, dz - 1);
-        double n101 = SimplexNoiseSampler::dot(SimplexNoiseSampler::GRADIENTS[grad(gy10 + z + 1) & 15], dx - 1, dy, dz - 1);
-        double n011 = SimplexNoiseSampler::dot(SimplexNoiseSampler::GRADIENTS[grad(gy01 + z + 1) & 15], dx, dy - 1, dz - 1);
-        double n111 = SimplexNoiseSampler::dot(SimplexNoiseSampler::GRADIENTS[grad(gy11 + z + 1) & 15], dx - 1, dy - 1, dz - 1);
+        const int g000 = permGrad16_[(gy00 + z) & 255];
+        const int g100 = permGrad16_[(gy10 + z) & 255];
+        const int g010 = permGrad16_[(gy01 + z) & 255];
+        const int g110 = permGrad16_[(gy11 + z) & 255];
+        const int g001 = permGrad16_[(gy00 + z + 1) & 255];
+        const int g101 = permGrad16_[(gy10 + z + 1) & 255];
+        const int g011 = permGrad16_[(gy01 + z + 1) & 255];
+        const int g111 = permGrad16_[(gy11 + z + 1) & 255];
+
+        const double dx1 = dx - 1.0, dy1 = dy - 1.0, dz1 = dz - 1.0;
+        const auto *G = SimplexNoiseSampler::GRADIENTS;
+        double n000 = G[g000][0] * dx + G[g000][1] * dy + G[g000][2] * dz;
+        double n100 = G[g100][0] * dx1 + G[g100][1] * dy + G[g100][2] * dz;
+        double n010 = G[g010][0] * dx + G[g010][1] * dy1 + G[g010][2] * dz;
+        double n110 = G[g110][0] * dx1 + G[g110][1] * dy1 + G[g110][2] * dz;
+        double n001 = G[g001][0] * dx + G[g001][1] * dy + G[g001][2] * dz1;
+        double n101 = G[g101][0] * dx1 + G[g101][1] * dy + G[g101][2] * dz1;
+        double n011 = G[g011][0] * dx + G[g011][1] * dy1 + G[g011][2] * dz1;
+        double n111 = G[g111][0] * dx1 + G[g111][1] * dy1 + G[g111][2] * dz1;
 
         double fx = MathHelper::perlinFade(dx);
         double fy = MathHelper::perlinFade(fadeY);
@@ -105,6 +120,15 @@ namespace mc
         lacunarity_ = std::pow(2.0, (double)firstOctaveIndex);
         persistence_ = std::pow(2.0, count - 1) / (std::pow(2.0, count) - 1.0);
 
+        precompFreq_.resize(count);
+        precompAmpScale_.resize(count);
+        double f = lacunarity_, a = persistence_;
+        for (int i = 0; i < count; ++i, f *= 2.0, a /= 2.0)
+        {
+            precompFreq_[i] = f;
+            precompAmpScale_[i] = amplitudes_[i] * a;
+        }
+
         if (useDeriver)
         {
             auto deriver = rand.createRandomDeriver();
@@ -139,23 +163,20 @@ namespace mc
                                             double yScale, double yMax, bool useOriginY) const
     {
         double result = 0.0;
-        double freq = lacunarity_;
-        double amp = persistence_;
 
         for (size_t i = 0; i < samplers_.size(); ++i)
         {
             if (samplers_[i])
             {
+                const double freq = precompFreq_[i];
                 double m = samplers_[i]->sample(
                     maintainPrecision(d * freq),
                     useOriginY ? -samplers_[i]->originY : maintainPrecision(e * freq),
                     maintainPrecision(f * freq),
                     yScale * freq,
                     yMax * freq);
-                result += amplitudes_[i] * m * amp;
+                result += precompAmpScale_[i] * m;
             }
-            freq *= 2.0;
-            amp /= 2.0;
         }
         return result;
     }

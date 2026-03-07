@@ -365,6 +365,7 @@ namespace mc
             }
         }
 
+        cns.field36273_.clear();
         auto aquifer = ncs.createAquiferSampler(
             cns,
             pos.getStartX(), pos.getStartZ(),

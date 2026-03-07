@@ -15,6 +15,8 @@ int main()
     //setSeed(worldSeed);
 
     std::cout << "height=" << cs.getHeight(x, z) << "\n";
+    std::cout << "height=" << cs.getHeight(x, z, mc::Heightmap::Type::OCEAN_FLOOR_WG) << "\n";
+    std::cout << "height=" << cs.getHeight(x, z, true) << "\n";// skip caves
     std::cout << "lava=" << (cs.isLava(x, -21, z) ? "true" : "false") << "\n";
     std::cout << "water=" << (cs.isWater(x, 19, z) ? "true" : "false") << "\n";
 
@@ -23,7 +25,7 @@ int main()
 ```
 #
 ### Compile
-```
+```bash
 make
 g++ example.cpp libchunksampler.a -O3 -std=c++17 -o example
 ```

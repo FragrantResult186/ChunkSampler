@@ -32,9 +32,10 @@ namespace mc
         double sample(double d, double e, double f, double g, double h) const;
 
     private:
-        uint8_t perm_[256];
+        uint8_t perm_[512];
+        uint8_t permGrad16_[512];
 
-        int grad(int i) const { return perm_[i & 255] & 255; }
+        int grad(int i) const { return perm_[i & 255]; }
         double sampleInternal(int x, int y, int z,
                               double dx, double dy, double dz, double fadeY) const;
     };
@@ -58,6 +59,8 @@ namespace mc
         std::vector<double> amplitudes_;
         double lacunarity_;
         double persistence_;
+        std::vector<double> precompFreq_;
+        std::vector<double> precompAmpScale_;
 
         OctavePerlinNoiseSampler(AbstractRandom &rand, int firstOctaveIndex,
                                  const std::vector<double> &amps, bool useDeriver);

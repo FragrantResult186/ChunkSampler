@@ -55,9 +55,9 @@ namespace mc
             BiomeCoords::fromBlock(blockX),
             BiomeCoords::fromBlock(blockZ));
 
-        auto it = field36273_.find(key);
-        if (it != field36273_.end())
-            return it->second;
+        int cached = field36273_.find(key);
+        if (cached != SurfaceCache::EMPTY)
+            return cached;
 
         int bx = ChunkPos::getPackedX(key);
         int bz = ChunkPos::getPackedZ(key);
@@ -74,6 +74,7 @@ namespace mc
             BiomeCoords::toBlock(bz),
             tp);
 
+        field36273_.insert(key, result);
         return result;
     }
 
